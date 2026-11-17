@@ -1,0 +1,36 @@
+rules:
+  - id: pipeline.eval-with-non-literal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: eval() with a non-literal argument runs arbitrary code. Remove it.
+    patterns:
+      - pattern: eval($X)
+      - pattern-not: eval("...")
+  - id: pipeline.new-function-with-non-literal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: new Function() with a non-literal argument runs arbitrary code. Remove it.
+    patterns:
+      - pattern-either:
+          - pattern: new Function(...)
+          - pattern: Function(...)
+      - pattern-not: new Function("...")
+      - pattern-not: Function("...")
+  - id: pipeline.child-process-exec-with-non-literal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Running a shell command built from non-literal input allows command injection. Use execFile with an argument list.
+    patterns:
+      - pattern-either:
+          - pattern: exec($X, ...)
+          - pattern: execSync($X, ...)
+          - pattern: child_process.exec($X, ...)
+          - pattern: child_process.execSync($X, ...)
+          - pattern: cp.exec($X, ...)
+          - pattern: cp.execSync($X, ...)
+      - pattern-not: exec("...", ...)
+      - pattern-not: execSync("...", ...)
+      - pattern-not: child_process.exec("...", ...)
+      - pattern-not: child_process.execSync("...", ...)
+      - pattern-not: cp.exec("...", ...)
+      - pattern-not: cp.execSync("...", ...)

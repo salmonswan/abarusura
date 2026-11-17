@@ -1,0 +1,37 @@
+id: baseline
+name: Baseline for every project
+version: 1
+items:
+  - id: BASE-SECRETS
+    text: No secrets in the repository or its history (secret scan).
+    check: {type: tool, ref: secrets}
+  - id: BASE-DEPS
+    text: No dependency with a high or critical known vulnerability (CVSS 7.0 or higher, or no score).
+    check: {type: tool, ref: dependencies}
+  - id: BASE-SAST
+    text: No high severity finding from static code scanning.
+    check: {type: tool, ref: sast}
+  - id: BASE-SBOM
+    text: An SBOM listing every shipped library is generated and attached to the run.
+    check: {type: tool, ref: sbom}
+  - id: BASE-BUILD
+    text: The project's real build command passes.
+    check: {type: tool, ref: build}
+  - id: BASE-TESTS
+    text: Unit and integration tests run (at least one) and pass.
+    check: {type: tool, ref: tests}
+  - id: BASE-JOURNEYS
+    text: Every journey has an existing test file.
+    check: {type: tool, ref: journeys}
+  - id: BASE-E2E
+    text: Journey tests run against a running build and pass.
+    check: {type: tool, ref: e2e}
+  - id: BASE-JOURNEY-CHANGE
+    text: App code changes come with a journey change, or a reason in the PR.
+    check: {type: tool, ref: journey_change}
+  - id: BASE-PINNED
+    text: Dependency versions are pinned by a committed lockfile.
+    check: {type: tool, ref: pinned_deps}
+  - id: BASE-REVIEW
+    text: A person reviewed the change, the report and the journey screenshots.
+    check: {type: review}

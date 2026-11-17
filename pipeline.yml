@@ -1,0 +1,24 @@
+# Project commands, read by CI and by agents.
+# Contract: the test command must write results/junit-tests.xml and the e2e command must write
+# results/junit-e2e.xml (and screenshots into results/screenshots/). A missing report fails the gate.
+stack: web
+# The web app lives in frontend/. Commands run there, so reports go to ../results/ (results/ stays at the repo root).
+# app_paths and e2e_dir are paths from the repo root.
+app_dir: frontend
+commands:
+  build: npm run build
+  lint: npm run lint
+  test: npx vitest run --reporter=default --reporter=junit --outputFile.junit=../results/junit-tests.xml
+  # make-env.sh writes directus/.env first: random values on CI, values from pass locally.
+  e2e: ../directus/make-env.sh && PLAYWRIGHT_JUNIT_OUTPUT_FILE=../results/junit-e2e.xml npx playwright test --reporter=list,junit
+app_paths:
+  - "frontend/src/**"
+  - "frontend/static/**"
+e2e_dir: frontend/e2e
+# Limits for this machine. Not used on GitHub runners. These are the defaults; uncomment to change them.
+# max_test_workers is also the cap the test_workers gate holds your test configs to (ceiling 6).
+# resources:
+#   max_test_workers: 4
+#   min_free_ram_gb: 4
+#   min_free_disk_gb: 10
+#   max_piece_copies: 3   # repo copies for agents, all projects together (ceiling 6)

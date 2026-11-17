@@ -1,0 +1,298 @@
+# Two jobs. `run` executes the pull request's own code (install scripts, build, tests) and holds no write token.
+# `gates` never runs PR code: it judges with the pipeline copied from the BASE branch, so a PR cannot edit its judge.
+# `protected-files` is a separate red or green check for changes to files that decide how a PR is judged.
+name: pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Take the pipeline from the base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          trusted="$RUNNER_TEMP/trusted"
+          mkdir -p "$trusted/docs"
+          git archive "origin/${BASE_REF}" .pipeline | tar -x -C "$trusted"
+          git show "origin/${BASE_REF}:pipeline.yml" > "$trusted/pipeline.yml"
+          echo "TRUSTED=$trusted" >> "$GITHUB_ENV"
+          echo "PYTHONPATH=$trusted/.pipeline" >> "$GITHUB_ENV"
+
+      - name: Install pinned Python packages
+        run: pip install --require-hashes -r "$TRUSTED/.pipeline/requirements-core.lock"
+
+      - name: Read app_dir from the trusted pipeline.yml
+        run: |
+          set -euo pipefail
+          if python -m devpipeline --trusted "$TRUSTED" config --help > /dev/null 2>&1; then
+            app_dir=$(python -m devpipeline --trusted "$TRUSTED" config app-dir)
+          else
+            # The base branch has a pipeline from before app_dir, so the app is at the root.
+            app_dir=.
+          fi
+          echo "APP_DIR=$app_dir" >> "$GITHUB_ENV"
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ env.APP_DIR }}/.nvmrc
+
+      - name: Install project dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: ${{ env.APP_DIR }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python -m devpipeline --trusted "$TRUSTED" exec build
+
+      - name: Lint
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python -m devpipeline --trusted "$TRUSTED" exec lint
+
+      - name: Unit and integration tests
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python -m devpipeline --trusted "$TRUSTED" exec test
+
+      - name: Journey tests (Playwright)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python -m devpipeline --trusted "$TRUSTED" exec e2e
+
+      - name: Upload run results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: run-results
+          retention-days: 1
+          path: |
+            results/exec-*.exit
+            results/junit-*.xml
+            results/screenshots/
+          if-no-files-found: error
+
+  gates:
+    needs: run
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Take the pipeline from the base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          trusted="$RUNNER_TEMP/trusted"
+          mkdir -p "$trusted/docs"
+          git archive "origin/${BASE_REF}" .pipeline | tar -x -C "$trusted"
+          git show "origin/${BASE_REF}:pipeline.yml" > "$trusted/pipeline.yml"
+          git show "origin/${BASE_REF}:.pipeline-baseline.json" > "$trusted/.pipeline-baseline.json"
+          git show "origin/${BASE_REF}:docs/standards.yml" > "$trusted/docs/standards.yml"
+          if git cat-file -e "origin/${BASE_REF}:docs/standards-review.yml" 2>/dev/null; then
+            git show "origin/${BASE_REF}:docs/standards-review.yml" > "$trusted/docs/standards-review.yml"
+          fi
+          echo "TRUSTED=$trusted" >> "$GITHUB_ENV"
+          echo "PYTHONPATH=$trusted/.pipeline" >> "$GITHUB_ENV"
+
+      - name: Install pinned Python packages
+        run: |
+          set -euo pipefail
+          pip install --require-hashes -r "$TRUSTED/.pipeline/requirements-core.lock"
+          pip install --require-hashes -r "$TRUSTED/.pipeline/requirements-semgrep.lock"
+
+      - name: Install pinned scanners and check their sha256
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          lock="$TRUSTED/.pipeline/tools.lock"
+          fetch() {
+            local name=$1 url sha
+            read -r _ _ url sha < <(grep "^${name} " "$lock")
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/${name}.dl" "$url"
+            echo "${sha}  $RUNNER_TEMP/${name}.dl" | sha256sum -c -
+          }
+          fetch gitleaks
+          tar -xzf "$RUNNER_TEMP/gitleaks.dl" -C "$RUNNER_TEMP/bin" gitleaks
+          fetch syft
+          tar -xzf "$RUNNER_TEMP/syft.dl" -C "$RUNNER_TEMP/bin" syft
+          fetch osv-scanner
+          install -m 755 "$RUNNER_TEMP/osv-scanner.dl" "$RUNNER_TEMP/bin/osv-scanner"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Download run results
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: run-results
+          path: ${{ runner.temp }}/run-results
+
+      - name: Start a clean results folder and read the PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          rm -rf results
+          mkdir results
+          gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq .body > results/pr_body.md
+
+      - name: Judge the run results
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python -m devpipeline --trusted "$TRUSTED" ingest "$RUNNER_TEMP/run-results"
+
+      - name: Secret scan
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          cfg="$TRUSTED/.pipeline/scanner-config"
+          gitleaks detect --redact --ignore-gitleaks-allow --gitleaks-ignore-path "$cfg" --config "$cfg/gitleaks.toml" \
+            --report-format json --report-path results/gitleaks.json --exit-code 0 || true
+          python -m devpipeline --trusted "$TRUSTED" parse gitleaks results/gitleaks.json --tracked-files "$(git ls-files | wc -l)"
+
+      - name: Dependency scan
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          cfg="$TRUSTED/.pipeline/scanner-config"
+          code=0
+          osv-scanner --config "$cfg/osv-scanner.toml" --format json -r . > results/osv.json 2> results/osv.err || code=$?
+          python -m devpipeline --trusted "$TRUSTED" parse osv results/osv.json --exit-code "$code" --log results/osv.err
+
+      - name: Static code scan
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          cfg="$TRUSTED/.pipeline/scanner-config"
+          semgrep --metrics=off --disable-nosem --x-ignore-semgrepignore-files \
+            --config "$cfg/semgrep-rules.yml" --config p/owasp-top-ten --config p/typescript \
+            --json -o results/semgrep.json --exclude .pipeline --exclude results --exclude node_modules . || true
+          python -m devpipeline --trusted "$TRUSTED" parse semgrep results/semgrep.json
+
+      - name: SBOM
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          syft . -o cyclonedx-json=results/sbom.json || true
+          python -m devpipeline --trusted "$TRUSTED" parse sbom results/sbom.json
+
+      - name: Journey, standards and protected file checks
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          python -m devpipeline --trusted "$TRUSTED" check-journeys
+          python -m devpipeline --trusted "$TRUSTED" check-journey-change --base "origin/${BASE_REF}" --pr-body-file results/pr_body.md
+          python -m devpipeline --trusted "$TRUSTED" check-protected --base "origin/${BASE_REF}"
+          python -m devpipeline --trusted "$TRUSTED" standards check-rendered
+          python -m devpipeline --trusted "$TRUSTED" record pinned_deps
+          python -m devpipeline --trusted "$TRUSTED" record test_workers
+
+      - name: Resolve standards, decide and write the report
+        if: ${{ !cancelled() }}
+        run: |
+          python -m devpipeline --trusted "$TRUSTED" resolve --pr-body-file results/pr_body.md
+          python -m devpipeline --trusted "$TRUSTED" verdict || true
+          python -m devpipeline --trusted "$TRUSTED" report
+          cat results/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post the report as a PR comment
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- devpipeline-report -->")) | .id' | sed -n '1p')
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/${REPO}/issues/comments/${id}" -F body=@results/report.md
+          else
+            gh api --method POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -F body=@results/report.md
+          fi
+
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pipeline-results
+          retention-days: 14
+          path: results/
+          if-no-files-found: error
+
+      - name: Verdict
+        if: ${{ !cancelled() }}
+        run: python -m devpipeline --trusted "$TRUSTED" verdict
+
+  protected-files:
+    needs: gates
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Download results
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pipeline-results
+          path: ${{ runner.temp }}/results
+
+      - name: Fail when protected files changed
+        run: |
+          set -euo pipefail
+          status=$(jq -r .status "$RUNNER_TEMP/results/protected_files.json")
+          if [ "$status" != "passed" ]; then
+            echo "::error::protected_files is ${status}. See the report: only the owner can confirm this at the merge guard."
+            jq -r .message "$RUNNER_TEMP/results/protected_files.json"
+            exit 1
+          fi

@@ -1,0 +1,6 @@
+node_modules/
+results/
+directus/.env
+.superpowers/
+.svelte-kit/
+frontend/build/

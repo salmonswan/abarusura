@@ -1,0 +1,18 @@
+# Standards chosen for this project. Paste the output of `devpipeline standards suggest`,
+# then edit the reasons. A person approves this file in a PR.
+standards:
+- id: baseline
+  reason: every project
+- id: owasp-top-ten-2021
+  reason: every project
+- id: asvs-5.0-l2
+  reason: web app or API
+- id: owasp-api-top10-2023
+  reason: has an API
+- id: ug-dppa-2019
+  reason: holds personal data
+- id: wcag-2.2-aa
+  reason: has public-facing screens
+
+# overrides:
+#   OWASP-A01: {type: test, ref: e2e/permission-refused.spec.ts}

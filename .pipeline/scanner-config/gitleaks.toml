@@ -1,0 +1,5 @@
+# Bundled by the pipeline. The project's own gitleaks config is ignored on purpose.
+title = "pipeline gitleaks config"
+
+[extend]
+useDefault = true

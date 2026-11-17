@@ -1,0 +1,16 @@
+# Project settings for the pipeline loop. Shipped by `devpipeline sync`.
+session:
+  warnCost: 5
+# These tools run things outside the command guard, so they are off.
+git:
+  enabled: false
+commit:
+  enabled: false
+launch:
+  enabled: false
+debug:
+  enabled: false
+browser:
+  enabled: false
+ida:
+  enabled: false

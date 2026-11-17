@@ -1,0 +1,37 @@
+name: abarusura
+
+services:
+  db:
+    image: postgres:17.12-alpine
+    environment:
+      POSTGRES_DB: directus
+      POSTGRES_USER: directus
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?run make-env.sh first}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "directus"]
+      interval: 2s
+      retries: 30
+
+  directus:
+    image: directus/directus:12.6.1
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8065:8055"
+    environment:
+      SECRET: ${DIRECTUS_SECRET:?run make-env.sh first}
+      DB_CLIENT: pg
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: directus
+      DB_USER: directus
+      DB_PASSWORD: ${DB_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?run make-env.sh first}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?run make-env.sh first}
+      PUBLIC_URL: http://localhost:8065
+
+volumes:
+  db-data:

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abarusura RFC prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap">
+<style>
+  :root { --navy: #0C1432; --navy2: #141f4a; --line: #1f2a55; --red: #E62529; --mist: #cfd3e6; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--navy); color: #fff; }
+  a { color: inherit; text-decoration: none; }
+  .cond { font-family: "Oswald", Impact, "Arial Narrow", sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+  .proto-note { background: #222; color: #ddd; font-size: 13px; padding: 8px 16px; text-align: center; }
+
+  header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 22px; padding: 10px 28px; background: rgba(12,20,50,.94); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); view-transition-name: site-header; }
+  header img { height: 50px; background: #fff; border-radius: 50%; padding: 3px; }
+  header .sp { flex: 1; }
+  header nav a { color: var(--mist); font-size: 14px; padding: 6px 2px; margin: 0 8px; border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; }
+  header nav a:hover, header nav a:focus-visible { color: #fff; }
+  header nav a.on { color: #fff; border-color: var(--red); }
+  .btn { display: inline-block; padding: 11px 20px; font-weight: 700; font-size: 14px; border-radius: 3px; border: 0; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+  .red { background: var(--red); color: #fff; }
+  .ghost { background: transparent; border: 1px solid var(--mist); color: #fff; }
+  :focus-visible { outline: 3px solid #ffd34d; outline-offset: 3px; }
+  .kicker { color: var(--red); font-size: 13px; letter-spacing: .25em; font-weight: 700; }
+  .pattern { height: 12px; background: repeating-linear-gradient(135deg,var(--red) 0 10px,var(--navy) 10px 20px); view-transition-name: stripe; }
+  main { view-transition-name: page; }
+
+  /* page transition */
+  ::view-transition-old(page) { animation: page-out .28s ease both; }
+  ::view-transition-new(page) { animation: page-in .45s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes page-out { to { opacity: 0; transform: translateX(-40px); } }
+  @keyframes page-in { from { opacity: 0; transform: translateX(60px); } }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(page), ::view-transition-new(page), ::view-transition-group(*) { animation: none !important; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+
+  /* home hero: living slideshow */
+  .hero { position: relative; height: 520px; overflow: hidden; }
+  .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s ease; }
+  .slide.on { opacity: 1; }
+  .slide img { width: 100%; height: 100%; object-fit: cover; transform-origin: 60% 50%; }
+  .slide.on img { animation: kb 7s ease-out both; }
+  @keyframes kb { from { transform: scale(1); } to { transform: scale(1.09); } }
+  .slide:first-child { opacity: 1; }
+  .hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg,rgba(12,20,50,.96) 0%,rgba(12,20,50,.75) 38%,rgba(12,20,50,.05) 75%); }
+  .hero .txt { position: absolute; left: 40px; top: 64px; z-index: 2; max-width: 520px; }
+  .hero h1 { font-size: 72px; line-height: .95; margin: 14px 0 18px; }
+  .hero h1 span { display: block; animation: rise .9s cubic-bezier(.2,.8,.2,1) both; }
+  .hero h1 span:nth-child(2) { animation-delay: .1s; } .hero h1 span:nth-child(3) { animation-delay: .2s; }
+  @keyframes rise { from { transform: translateY(30px); opacity: .2; } }
+  .hero p { color: var(--mist); line-height: 1.55; }
+  .slidebar { position: absolute; left: 40px; bottom: 26px; z-index: 2; display: flex; align-items: center; gap: 10px; }
+  .slidebar .seg { width: 46px; height: 4px; background: rgba(255,255,255,.3); border-radius: 2px; overflow: hidden; }
+  .slidebar .seg i { display: block; height: 100%; width: 0; background: #fff; }
+  .slidebar button { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 99px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+
+  .strip { display: grid; grid-template-columns: 1.3fr 1fr 1fr; }
+  .strip > * { padding: 22px 26px; display: block; }
+  .tag { font-size: 12px; font-weight: 800; letter-spacing: .15em; }
+  .next { background: var(--red); }
+  .next .vs { font-size: 30px; margin: 6px 0; }
+  .count { display: flex; gap: 14px; margin-top: 8px; }
+  .count div { text-align: center; }
+  .count b { display: block; font-size: 30px; font-family: "Oswald", Impact, sans-serif; font-variant-numeric: tabular-nums; }
+  .count small { font-size: 11px; letter-spacing: .1em; opacity: .85; }
+  .res { background: #fff; color: var(--navy); transition: transform .2s; }
+  .res:hover { transform: translateY(-4px); }
+  .res .tag { color: var(--red); }
+  .res .score { font-size: 40px; }
+  .res + .res { background: #eef0f6; }
+
+  .values { display: flex; justify-content: space-around; padding: 30px 24px; font-size: 24px; }
+  .values span { color: #6f7799; transition: color .5s, transform .5s; }
+  .values span.lit { color: #fff; transform: translateY(-3px); }
+  .story3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--line); }
+  .story3 a { background: var(--navy); padding: 26px; transition: background .2s; display: block; }
+  .story3 a:hover { background: var(--navy2); }
+  .story3 h3 { color: var(--red); margin: 0 0 8px; font-size: 22px; }
+  .story3 p { color: var(--mist); font-size: 14px; line-height: 1.5; margin: 0; }
+  .story3 .go { display: inline-block; margin-top: 12px; color: #fff; font-weight: 700; font-size: 13px; transition: transform .2s; }
+  .story3 a:hover .go { transform: translateX(6px); }
+
+  /* fixtures */
+  .ph { padding: 44px 40px; background: linear-gradient(135deg,var(--navy) 60%,var(--navy2)); }
+  .ph h1 { font-size: 56px; margin: 8px 0 0; }
+  .tabs { display: flex; gap: 8px; padding: 16px 40px 0; }
+  .tabs button { padding: 12px 18px; font-weight: 700; font-size: 14px; color: var(--mist); background: transparent; border: 0; border-radius: 4px 4px 0 0; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: #fff; color: var(--navy); }
+  .list { background: #fff; color: var(--navy); padding: 18px 40px 40px; min-height: 420px; }
+  .month { font-size: 13px; font-weight: 800; letter-spacing: .15em; color: var(--red); margin: 18px 0 8px; }
+  .row { display: grid; grid-template-columns: 110px 1fr 130px 110px; align-items: center; gap: 14px; padding: 14px 10px; border-bottom: 1px solid #e6e8f0; border-radius: 6px; transition: background .2s, transform .25s, opacity .25s; }
+  .row:hover { background: #f4f5fa; }
+  .row.hide { display: none; }
+  .row.enter { animation: rowin .35s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes rowin { from { transform: translateY(8px); opacity: .3; } }
+  .row .d { font-weight: 700; } .row .d small { display: block; color: #666; font-weight: 400; }
+  .row .m { font-size: 22px; }
+  .pill { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 99px; text-align: center; }
+  .w { background: #e6f4ea; color: #1e6b35; } .l { background: #fde8e8; color: #a3171a; } .u { background: #eef0f6; color: var(--navy); }
+
+  /* story: scroll down the pitch */
+  .story { display: grid; grid-template-columns: 1fr 1fr; }
+  .stage { position: sticky; top: 71px; height: calc(100vh - 71px); display: grid; grid-template-columns: 90px 1fr; }
+  .pitch { position: relative; background: #1d6b3a; border-right: 4px solid #fff; }
+  .pitch .ln { position: absolute; left: 0; right: 0; border-top: 2px solid rgba(255,255,255,.8); font: 700 11px system-ui; color: #fff; padding: 3px 6px; }
+  .pitch .ln.dash { border-top-style: dashed; }
+  .ball { position: absolute; left: 50%; width: 30px; height: 20px; margin-left: -15px; background: #fff; border-radius: 50%; box-shadow: 0 0 0 3px var(--red); transition: top .15s linear; }
+  .scene { position: relative; overflow: hidden; }
+  .scene figure { position: absolute; inset: 0; margin: 0; opacity: 0; transition: opacity .7s; }
+  .scene figure.on { opacity: 1; }
+  .scene figure:first-child { opacity: 1; }
+  .scene img { width: 100%; height: 100%; object-fit: cover; }
+  .scene figure.logo { background: var(--navy); display: grid; place-items: center; }
+  .scene figure.logo img { width: 60%; height: auto; object-fit: contain; background: #fff; border-radius: 50%; padding: 10px; }
+  .steps { padding: 0 48px; }
+  .step { min-height: 90vh; display: flex; flex-direction: column; justify-content: center; opacity: .35; transition: opacity .5s; }
+  .step.on { opacity: 1; }
+  .step .yr { font-size: 64px; color: var(--red); line-height: 1; }
+  .step h2 { font-size: 40px; margin: 10px 0; }
+  .step p { color: var(--mist); font-size: 17px; line-height: 1.6; max-width: 460px; }
+  .big { font-size: 80px; color: #fff; font-family: "Oswald", Impact, sans-serif; font-variant-numeric: tabular-nums; }
+  .tryline { padding: 70px 48px; text-align: center; background: var(--red); }
+  .tryline h2 { font-size: 46px; margin: 0 0 16px; }
+  footer { padding: 26px 40px; color: var(--mist); font-size: 13px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="proto-note">Clickable prototype. Fixtures and scores are made up. Try the nav links, the slideshow pause button, the fixture tabs and the story page.</div>
+
+<header>
+  <a href="#/"><img src="../../frontend/static/images/logo.png" alt="Abarusura RFC home"></a>
+  <a href="#/" class="cond" style="font-size:18px">Abarusura RFC</a>
+  <span class="sp"></span>
+  <nav>
+    <a href="#/story" data-r="story">Our story</a>
+    <a href="#/fixtures" data-r="fixtures">Fixtures</a>
+    <a href="#/" data-r="academy">Academy</a>
+    <a href="#/" data-r="k7s">Kabalega 7s</a>
+    <a href="#/" data-r="partners">Partners</a>
+  </nav>
+  <a class="btn red" href="#/story">Join the club</a>
+</header>
+
+<main id="view"></main>
+
+<template id="t-home">
+  <section class="hero" aria-label="Club photos">
+    <div class="slide"><img src="../../frontend/static/images/hero-wide.jpg" alt="Abarusura women's side running in attack"></div>
+    <div class="slide"><img src="../../frontend/static/images/clip10.jpg" alt="Players smiling before a match"></div>
+    <div class="slide"><img src="../../frontend/static/images/hero.jpg" alt="A ball carrier breaks through"></div>
+    <div class="txt">
+      <div class="kicker">HOIMA · BUNYORO-KITARA · SINCE 2025</div>
+      <h1 class="cond"><span>Kabalega's</span><span>warriors</span><span>play rugby</span></h1>
+      <p>Named after the elite soldiers of Omukama Kabalega, we grow rugby across Bunyoro and give young players a place to belong.</p>
+      <p style="margin-top:22px"><a class="btn red" href="#/story">Train with us</a> &nbsp; <a class="btn ghost" href="#/story">Our story</a></p>
+    </div>
+    <div class="slidebar"><span class="seg"><i></i></span><span class="seg"><i></i></span><span class="seg"><i></i></span><button type="button" class="pause">Pause</button></div>
+  </section>
+  <div class="strip">
+    <div class="next"><div class="tag">NEXT FIXTURE · MEN</div><div class="vs cond">Abarusura v Fort Portal</div>
+      <div class="count" aria-live="off"><div><b data-u="d">0</b><small>DAYS</small></div><div><b data-u="h">0</b><small>HRS</small></div><div><b data-u="m">0</b><small>MIN</small></div><div><b data-u="s">0</b><small>SEC</small></div></div>
+      <small>Sir Tito Winyi Stadium, Kiryatete</small></div>
+    <a class="res" href="#/fixtures"><div class="tag">LAST RESULT · WOMEN</div><div class="score cond">24 - 12</div><small>v Masindi, won</small></a>
+    <a class="res" href="#/fixtures"><div class="tag">LAST RESULT · MEN</div><div class="score cond">17 - 19</div><small>v Kasese, lost</small></a>
+  </div>
+  <div class="pattern"></div>
+  <div class="values cond"><span>Discipline</span><span>Integrity</span><span>Determination</span><span>Dedication</span><span>Diligence</span></div>
+  <div class="story3">
+    <a href="#/story"><h3 class="cond">The name</h3><p>The Abarusura defended the Bunyoro-Kitara Kingdom in the late 19th century.</p><span class="go">Read our story →</span></a>
+    <a href="#/story"><h3 class="cond">The academy</h3><p>5 primary and 3 secondary schools play with us.</p><span class="go">Meet the academy →</span></a>
+    <a href="#/fixtures"><h3 class="cond">Kabalega 7s</h3><p>Our tournament for clubs across the region.</p><span class="go">See the fixtures →</span></a>
+  </div>
+  <footer>Abarusura Rugby Football Club · A member of Uganda Rugby Union · Hoima</footer>
+</template>
+
+<template id="t-fixtures">
+  <div class="ph"><div class="kicker">SEASON 2026/27</div><h1 class="cond">Fixtures and results</h1></div>
+  <div class="pattern"></div>
+  <div class="tabs" role="tablist" aria-label="Filter fixtures">
+    <button role="tab" aria-selected="true" data-f="all">All</button><button role="tab" aria-selected="false" data-f="men">Men</button><button role="tab" aria-selected="false" data-f="women">Women</button><button role="tab" aria-selected="false" data-f="academy">Academy</button>
+  </div>
+  <div class="list">
+    <div class="month">DECEMBER</div>
+    <div class="row" data-g="men"><div class="d">Sat 6 Dec<small>14:00</small></div><div class="m cond">Abarusura v Fort Portal</div><div>Men · Home</div><span class="pill u">Upcoming</span></div>
+    <div class="row" data-g="academy"><div class="d">Sat 13 Dec<small>11:00</small></div><div class="m cond">Hoima Schools 7s</div><div>Academy · Home</div><span class="pill u">Upcoming</span></div>
+    <div class="row" data-g="women"><div class="d">Sat 20 Dec<small>15:00</small></div><div class="m cond">Abarusura v Mbarara</div><div>Women · Home</div><span class="pill u">Upcoming</span></div>
+    <div class="month">NOVEMBER</div>
+    <div class="row" data-g="women"><div class="d">Sat 15 Nov<small>15:00</small></div><div class="m cond">Abarusura 24 - 12 Masindi</div><div>Women · Away</div><span class="pill w">Won</span></div>
+    <div class="row" data-g="men"><div class="d">Sat 8 Nov<small>15:00</small></div><div class="m cond">Kasese 19 - 17 Abarusura</div><div>Men · Away</div><span class="pill l">Lost</span></div>
+    <div class="row" data-g="academy"><div class="d">Sat 1 Nov<small>10:00</small></div><div class="m cond">Bunyoro Schools Festival</div><div>Academy · Home</div><span class="pill w">Played</span></div>
+  </div>
+</template>
+
+<template id="t-story">
+  <div class="story">
+    <div class="stage">
+      <div class="pitch" aria-hidden="true">
+        <span class="ln" style="top:4%">TRY</span><span class="ln dash" style="top:25%">22</span><span class="ln" style="top:50%">HALF</span><span class="ln dash" style="top:75%">22</span><span class="ln" style="top:96%">TRY</span>
+        <span class="ball"></span>
+      </div>
+      <div class="scene">
+        <figure class="logo"><img src="../../frontend/static/images/logo.png" alt=""></figure>
+        <figure><img src="../../frontend/static/images/hero.jpg" alt=""></figure>
+        <figure><img src="../../frontend/static/images/clip10.jpg" alt=""></figure>
+        <figure><img src="../../frontend/static/images/hero-wide.jpg" alt=""></figure>
+      </div>
+    </div>
+    <div class="steps">
+      <section class="step"><div class="yr cond">1890s</div><h2 class="cond">The Abarusura</h2><p>Omukama Kabalega Cwa II raised an elite force to defend the Bunyoro-Kitara Kingdom. They were known for discipline and courage. We carry their name.</p></section>
+      <section class="step"><div class="yr cond">2025</div><h2 class="cond">Seven social workers</h2><p>The club was started by seven social workers who wanted to change their community through sport. Home is Sir Tito Winyi Stadium in Kiryatete, Hoima City.</p></section>
+      <section class="step"><div class="yr cond">Today</div><h2 class="cond">The academy</h2><p><span class="big" data-to="8">8</span><br>schools play with us: 5 primary and 3 secondary, boys and girls, across Bunyoro.</p></section>
+      <section class="step"><div class="yr cond">Next</div><h2 class="cond">The Kabalega 7s</h2><p>Our tournament brings clubs from across the region to Hoima, and puts health, education and our values at the centre of the game.</p></section>
+    </div>
+  </div>
+  <div class="tryline"><div class="kicker" style="color:#fff">TRY LINE</div><h2 class="cond">Run with the warriors</h2><a class="btn" style="background:#fff;color:var(--navy)" href="#/fixtures">Come to training</a></div>
+  <footer>Abarusura Rugby Football Club · A member of Uganda Rugby Union · Hoima</footer>
+</template>
+
+<script>
+(() => {
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const view = document.getElementById("view");
+  let cleanup = [];
+  // The pause choice holds across pages for the whole visit.
+  let paused = sessionStorage.getItem("abar-paused") === "1" || reduced;
+
+  function route() { return (location.hash.replace("#/", "") || "home").split("/")[0]; }
+
+  function render() {
+    cleanup.forEach(f => f()); cleanup = [];
+    const r = route();
+    const t = document.getElementById("t-" + r) || document.getElementById("t-home");
+    view.replaceChildren(t.content.cloneNode(true));
+    document.querySelectorAll("header nav a").forEach(a => a.classList.toggle("on", a.dataset.r === r));
+    window.scrollTo({ top: 0, behavior: "instant" });
+    if (r === "fixtures") fixtures(); else if (r === "story") story(); else home();
+  }
+
+  function go() {
+    if (document.startViewTransition && !reduced) document.startViewTransition(render); else render();
+  }
+  addEventListener("hashchange", go);
+
+  function home() {
+    const slides = [...view.querySelectorAll(".slide")], segs = [...view.querySelectorAll(".seg i")];
+    const btn = view.querySelector(".pause"); const ms = 6000; let i = 0, timer = null, start = 0, left = ms;
+    function show(n) {
+      slides.forEach((s, k) => s.classList.toggle("on", k === n));
+      segs.forEach((g, k) => { g.style.transition = "none"; g.style.width = k < n ? "100%" : "0"; });
+    }
+    function run() {
+      const g = segs[i]; g.getBoundingClientRect();
+      g.style.transition = `width ${left}ms linear`; g.style.width = "100%"; start = Date.now();
+      timer = setTimeout(() => { i = (i + 1) % slides.length; left = ms; show(i); run(); }, left);
+    }
+    function setPaused(p) {
+      paused = p; sessionStorage.setItem("abar-paused", p ? "1" : "0");
+      btn.textContent = p ? "Play" : "Pause"; btn.setAttribute("aria-pressed", String(p));
+      slides.forEach(s => s.querySelector("img").style.animationPlayState = p ? "paused" : "running");
+      if (p) { clearTimeout(timer); left = Math.max(0, left - (Date.now() - start)); const g = segs[i]; const w = getComputedStyle(g).width; g.style.transition = "none"; g.style.width = w; }
+      else run();
+    }
+    show(0);
+    btn.onclick = () => setPaused(!paused);
+    if (reduced) { btn.hidden = true; } else if (paused) { setPaused(true); } else run();
+    cleanup.push(() => clearTimeout(timer));
+
+    // Countdown to the next fixture: three days and four hours from page load in this prototype.
+    const ko = Date.now() + ((3 * 24 + 4) * 60 + 12) * 60000;
+    const cells = Object.fromEntries([...view.querySelectorAll("[data-u]")].map(b => [b.dataset.u, b]));
+    const tick = () => { let s = Math.max(0, Math.floor((ko - Date.now()) / 1000));
+      cells.d.textContent = Math.floor(s / 86400); cells.h.textContent = Math.floor(s % 86400 / 3600);
+      cells.m.textContent = Math.floor(s % 3600 / 60); cells.s.textContent = String(s % 60).padStart(2, "0"); };
+    tick(); const iv = setInterval(tick, 1000); cleanup.push(() => clearInterval(iv));
+
+    // Values light up one by one when the band scrolls into view. Unlit values stay readable.
+    const vals = [...view.querySelectorAll(".values span")];
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { vals.forEach((v, k) => setTimeout(() => v.classList.add("lit"), reduced ? 0 : k * 220)); io.disconnect(); } }), { threshold: .6 });
+    io.observe(view.querySelector(".values")); cleanup.push(() => io.disconnect());
+  }
+
+  function fixtures() {
+    const tabs = [...view.querySelectorAll("[role=tab]")], rows = [...view.querySelectorAll(".row")];
+    tabs.forEach(t => t.onclick = () => {
+      tabs.forEach(x => x.setAttribute("aria-selected", String(x === t)));
+      rows.forEach(r => { const showIt = t.dataset.f === "all" || r.dataset.g === t.dataset.f;
+        r.classList.toggle("hide", !showIt); r.classList.remove("enter"); if (showIt) { r.getBoundingClientRect(); r.classList.add("enter"); } });
+    });
+  }
+
+  function story() {
+    const steps = [...view.querySelectorAll(".step")], figs = [...view.querySelectorAll(".scene figure")];
+    const ball = view.querySelector(".ball"), big = view.querySelector(".big"); let counted = false;
+    const onScroll = () => {
+      const box = view.querySelector(".steps").getBoundingClientRect();
+      const p = Math.min(1, Math.max(0, (innerHeight * .5 - box.top) / box.height));
+      ball.style.top = (4 + p * 90) + "%";
+      let cur = 0; steps.forEach((s, k) => { const b = s.getBoundingClientRect(); if (b.top < innerHeight * .55) cur = k; });
+      steps.forEach((s, k) => s.classList.toggle("on", k === cur));
+      figs.forEach((f, k) => f.classList.toggle("on", k === cur));
+      if (cur === 2 && !counted && !reduced) { counted = true; let n = 0; const iv = setInterval(() => { big.textContent = ++n; if (n >= 8) clearInterval(iv); }, 90); big.textContent = 0; }
+    };
+    addEventListener("scroll", onScroll, { passive: true }); onScroll();
+    cleanup.push(() => removeEventListener("scroll", onScroll));
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+id: owasp-top-ten-2021
+name: OWASP Top 10 (2021)
+version: 2021
+items:
+  - id: OWASP-A01
+    text: A01 Broken Access Control. Every route and action checks who is asking.
+    check: {type: review}
+  - id: OWASP-A02
+    text: A02 Cryptographic Failures. Sensitive data is encrypted in transit and at rest, with current algorithms.
+    check: {type: review}
+  - id: OWASP-A03
+    text: A03 Injection. No high severity injection finding from static code scanning.
+    check: {type: tool, ref: sast}
+  - id: OWASP-A04
+    text: A04 Insecure Design. Threats were considered for the changed feature.
+    check: {type: review}
+  - id: OWASP-A05
+    text: A05 Security Misconfiguration. Defaults, headers and error pages are hardened.
+    check: {type: review}
+  - id: OWASP-A06
+    text: A06 Vulnerable and Outdated Components. No high or critical known vulnerability in dependencies.
+    check: {type: tool, ref: dependencies}
+  - id: OWASP-A07
+    text: A07 Identification and Authentication Failures. Sign-in, sessions and password reset are safe.
+    check: {type: review}
+  - id: OWASP-A08
+    text: A08 Software and Data Integrity Failures. Updates and pipelines are verified, and input is not trusted blindly.
+    check: {type: review}
+  - id: OWASP-A09
+    text: A09 Security Logging and Monitoring Failures. Security events are logged and can be traced.
+    check: {type: review}
+  - id: OWASP-A10
+    text: A10 Server-Side Request Forgery. Server fetches of user-supplied URLs are restricted.
+    check: {type: review}
