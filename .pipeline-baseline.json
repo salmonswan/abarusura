@@ -1,5 +1,12 @@
 {
-  "findings": {},
-  "failed_items": [],
-  "not_covered_count": 9
+  "findings": {
+    "dependencies": [
+      "GHSA-fc5q-39xc-vjpf:picomatch@4.0.7"
+    ]
+  },
+  "failed_items": [
+    "BASE-DEPS",
+    "OWASP-A06"
+  ],
+  "not_covered_count": 265
 }
