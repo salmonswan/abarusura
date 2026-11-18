@@ -13,7 +13,7 @@ async function expectPhoto(page: Page, alt: string) {
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.route('**/images/*.jpg', (route) => route.fulfill({ status: 404, body: '' }))
-  await page.clock.install()
+  await page.clock.install({ time: new Date('2026-11-18T00:00:00Z') })
 })
 
 test('plays through the photos with three hidden progress bars', async ({ page }) => {
@@ -54,7 +54,11 @@ test('play uses only the time left before pause', async ({ page }) => {
 })
 
 test('pause survives navigation and returns to the first photo at the start', async ({ page }) => {
+  // Freeze before loading so hydration and assertions cannot consume slideshow time.
+  await page.clock.pauseAt(new Date('2026-11-18T00:00:01Z'))
   await page.goto('/')
+  // The control appears only after onMount has started the slideshow.
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
   await page.clock.runFor(6100)
   await expectPhoto(page, secondAlt)
   await page.getByRole('button', { name: 'Pause', exact: true }).click()
