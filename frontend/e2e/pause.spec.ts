@@ -62,9 +62,12 @@ test('pause survives navigation and returns to the first photo at the start', as
   await page.clock.runFor(6100)
   await expectPhoto(page, secondAlt)
   await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  // The slideshow is paused, so let the clock run for page view transitions.
+  await page.clock.resume()
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Fixtures', exact: true }).click()
   await expect(page).toHaveURL(/\/fixtures$/)
   await page.getByRole('banner').getByRole('link', { name: 'Abarusura RFC', exact: true }).click()
+  await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible()
   await expectPhoto(page, firstAlt)
   await expect(page.locator('.bar.active')).toHaveCSS('transform', 'matrix(0, 0, 0, 1, 0, 0)')
