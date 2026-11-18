@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+test.use({ reducedMotion: 'reduce' })
+
 const heading = "Kabalega's warriors play rugby"
 const introduction = 'Named after the elite soldiers of Omukama Kabalega, we grow rugby across Bunyoro and give young players a place to belong.'
 const values = ['Discipline', 'Integrity', 'Determination', 'Dedication', 'Diligence']
@@ -78,6 +80,7 @@ async function expectValuesAndLinks(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/images/*.jpg', (route) => route.fulfill({ status: 404, body: '' }))
+  await page.clock.install()
   await page.goto('/')
 })
 
@@ -130,4 +133,36 @@ test.describe('with scripts off', () => {
     await expectPhotos(page)
     await expectValuesAndLinks(page)
   })
+})
+
+test.describe('values motion', () => {
+  test.use({ reducedMotion: 'no-preference', viewport: { width: 1280, height: 480 } })
+
+  test('lights values once in order when the band enters view', async ({ page }) => {
+    const items = page.locator('.values li')
+    for (const item of await items.all()) {
+      await expect(item).toHaveCSS('color', 'rgb(111, 119, 153)')
+    }
+    await page.locator('.values').scrollIntoViewIfNeeded()
+    // Let the observer receive the scroll before advancing its staged timers.
+    await expect(page.locator('.values')).toHaveClass(/revealing/)
+    await page.clock.runFor(260)
+    await expect(items.first()).toHaveCSS('color', 'rgb(255, 255, 255)')
+    await expect(items.last()).toHaveCSS('color', 'rgb(111, 119, 153)')
+    await page.clock.runFor(1100)
+    for (const item of await items.all()) {
+      await expect(item).toHaveCSS('color', 'rgb(255, 255, 255)')
+    }
+    await page.locator('.opening').scrollIntoViewIfNeeded()
+    await page.locator('.values').scrollIntoViewIfNeeded()
+    for (const item of await items.all()) {
+      await expect(item).toHaveCSS('color', 'rgb(255, 255, 255)')
+    }
+  })
+})
+
+test('reduced motion leaves every value lit immediately', async ({ page }) => {
+  for (const item of await page.locator('.values li').all()) {
+    await expect(item).toHaveCSS('color', 'rgb(255, 255, 255)')
+  }
 })
