@@ -53,9 +53,10 @@ A 12px band of diagonal red and navy stripes, `repeating-linear-gradient(135deg,
   - The countdown still counts down with reduced motion on, because it is information and not decoration.
 
 ## Pictures
-- The logo and photos are in `frontend/static/images/`: `logo.png`, `hero.jpg`, `hero-wide.jpg`, `clip10.jpg`.
-- Every picture needs alt text that says what it shows. The logo's alt text is the club name.
-- Many players are children. Use a photo of a child only when the club confirms it has consent for that photo. Never name a child under a photo.
+- The logo is in `frontend/static/images/logo.png`.
+- No photos are in the repo yet. Many players are children, and the club has not yet confirmed consent for any photo. Photos go in `frontend/static/images/` once the club confirms consent for each one. Until then, `*.jpg` in that folder is git-ignored, so the prototype's photos only show on the owner's machine.
+- Build the opening and the story steps so they work with no photo: the navy background and gradient stand in. The photo list should be easy to change in one place.
+- Every picture needs alt text that says what it shows. The logo's alt text is the club name. Never name a child under a photo.
 
 ## States
 Every part that reads from Directus (fixtures, results, partners) shows three states besides the data: loading, empty ("No fixtures yet"), and error (says the fixtures could not load and offers a retry). Never fall back to made-up data.

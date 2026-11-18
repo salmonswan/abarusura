@@ -4,3 +4,5 @@ directus/.env
 .superpowers/
 .svelte-kit/
 frontend/build/
+# Photos stay off GitHub until the club confirms consent for each one.
+frontend/static/images/*.jpg
