@@ -11,6 +11,7 @@
     "lint": "npm run check && tsc -p tsconfig.tooling.json"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.65.1",
     "@sveltejs/adapter-static": "4.0.1",
     "@sveltejs/kit": "3.3.0",
