@@ -7,26 +7,49 @@
   let motion = $state(false)
   let paused = $state(false)
   let active = $state(0)
+  let previous = $state<number | undefined>(undefined)
   let slideshow: Slideshow | undefined
   const storage = {
     getItem: (key: string) => sessionStorage.getItem(key),
     setItem: (key: string, value: string) => sessionStorage.setItem(key, value),
   }
 
-  onMount(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  function startMotion() {
     paused = readPaused(storage)
+    active = 0
+    previous = undefined
     motion = true
     slideshow = createSlideshow({
       count: photos.length,
       ms: 6000,
-      onShow: (index) => { active = index },
+      onShow: (index) => { previous = active; active = index },
       now: () => Date.now(),
       setTimer: (callback, delay) => window.setTimeout(callback, delay),
       clearTimer: (timer) => window.clearTimeout(timer),
     })
     if (!paused) slideshow.play()
-    return () => slideshow?.pause()
+  }
+
+  function stopMotion() {
+    slideshow?.pause()
+    slideshow = undefined
+    motion = false
+    active = 0
+    previous = undefined
+  }
+
+  onMount(() => {
+    const query = matchMedia('(prefers-reduced-motion: reduce)')
+    const onChange = () => {
+      stopMotion()
+      if (!query.matches) startMotion()
+    }
+    if (!query.matches) startMotion()
+    query.addEventListener('change', onChange)
+    return () => {
+      query.removeEventListener('change', onChange)
+      slideshow?.pause()
+    }
   })
 
   function togglePaused() {
@@ -42,11 +65,12 @@
     <div
       class="photo"
       class:active={index === active}
+      class:entering={index === active && previous !== undefined}
+      class:outgoing={index === previous}
       role="img"
       aria-label={photo.alt}
       aria-hidden={index !== active ? 'true' : undefined}
       style:background-image={`url(/images/${photo.file})`}
-      style:opacity={index === active ? 1 : 0}
     ></div>
   {/each}
   <div class="text">
@@ -86,16 +110,29 @@
     position: absolute;
     inset: 0;
     z-index: -2;
+    opacity: 0;
     background-size: cover;
     background-position: center;
   }
 
+  .photo.active {
+    opacity: 1;
+  }
+
   .motion .photo {
-    transition: opacity 0.8s ease;
+    transform: scale(1.08);
   }
 
   .motion .photo.active {
     animation: photo-zoom 6s linear forwards;
+  }
+
+  .motion .photo.active.entering {
+    animation: photo-fade-in 0.8s ease both, photo-zoom 6s linear forwards;
+  }
+
+  .motion .photo.outgoing {
+    animation: photo-fade-out 0.8s ease forwards;
   }
 
   .motion-controls {
@@ -133,7 +170,8 @@
     animation: bar-fill 6s linear forwards;
   }
 
-  .paused .photo.active,
+  .motion.paused .photo.active,
+  .motion.paused .photo.outgoing,
   .paused .bar.active {
     animation-play-state: paused;
   }
@@ -145,6 +183,16 @@
     color: var(--white);
     font: inherit;
     cursor: pointer;
+  }
+
+  @keyframes photo-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes photo-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
   }
 
   @keyframes photo-zoom {

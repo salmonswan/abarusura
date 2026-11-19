@@ -6,7 +6,8 @@
   let revealing = $state(false)
 
   onMount(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const query = matchMedia('(prefers-reduced-motion: reduce)')
+    if (query.matches) return
     lit = 0
     let timer: number | undefined
     const observer = new IntersectionObserver((entries) => {
@@ -21,10 +22,19 @@
       if (lit < values.length) timer = window.setTimeout(lightNext, 250)
     }
 
+    function onChange() {
+      if (!query.matches) return
+      observer.disconnect()
+      window.clearTimeout(timer)
+      lit = values.length
+    }
+
     observer.observe(band)
+    query.addEventListener('change', onChange)
     return () => {
       observer.disconnect()
       window.clearTimeout(timer)
+      query.removeEventListener('change', onChange)
     }
   })
 </script>

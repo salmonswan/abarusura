@@ -39,6 +39,103 @@ test('pause saves the flag and stops photos, zoom and the bar', async ({ page })
   await expect(page.locator('.bar.active')).toHaveCSS('animation-play-state', 'paused')
 })
 
+test('the outgoing photo keeps its zoom through the fade', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+  await page.clock.runFor(6100)
+  await expectPhoto(page, secondAlt)
+  const outgoing = page.locator('.photo').nth(0)
+  await outgoing.evaluate((photo) => {
+    const fade = photo.getAnimations().find(
+      (animation): animation is CSSAnimation =>
+        animation instanceof CSSAnimation && animation.animationName === 'photo-fade-out',
+    )
+    if (!fade) throw new Error('Missing outgoing fade animation')
+    fade.currentTime = 400
+    fade.pause()
+  })
+  const opacity = await outgoing.evaluate((photo) => Number(getComputedStyle(photo).opacity))
+  expect(opacity).toBeGreaterThan(0.05)
+  expect(opacity).toBeLessThan(0.95)
+  await expect(outgoing).toHaveCSS('transform', 'matrix(1.08, 0, 0, 1.08, 0, 0)')
+  await outgoing.evaluate((photo) => {
+    const fade = photo.getAnimations().find(
+      (animation): animation is CSSAnimation =>
+        animation instanceof CSSAnimation && animation.animationName === 'photo-fade-out',
+    )
+    if (!fade) throw new Error('Missing outgoing fade animation')
+    fade.finish()
+  })
+  await expect(outgoing).toHaveCSS('opacity', '0')
+})
+
+test('pause freezes a cross-fade and play resumes it', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+  await page.clock.runFor(6100)
+  await expectPhoto(page, secondAlt)
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible()
+  const fades = await page.evaluate(() =>
+    [...document.querySelectorAll('.photo')]
+      .flatMap((photo) => photo.getAnimations())
+      .filter((animation): animation is CSSAnimation =>
+        animation instanceof CSSAnimation && animation.animationName.startsWith('photo-fade-'),
+      )
+      .map((animation) => {
+        animation.currentTime = 400
+        return { name: animation.animationName, playState: animation.playState }
+      }),
+  )
+  expect(fades).toEqual([
+    { name: 'photo-fade-out', playState: 'paused' },
+    { name: 'photo-fade-in', playState: 'paused' },
+  ])
+  const outgoing = page.locator('.photo').nth(0)
+  const opacity = await outgoing.evaluate((photo) => Number(getComputedStyle(photo).opacity))
+  expect(opacity).toBeGreaterThan(0.05)
+  expect(opacity).toBeLessThan(0.95)
+  await page.waitForTimeout(1000)
+  const pausedOpacity = await outgoing.evaluate((photo) => Number(getComputedStyle(photo).opacity))
+  expect(Math.abs(pausedOpacity - opacity)).toBeLessThan(0.01)
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect(outgoing).toHaveCSS('opacity', '0')
+  await expect(page.locator('.photo').nth(1)).toHaveCSS('opacity', '1')
+})
+
+test('reduced motion turned on and off while open', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+  await page.clock.runFor(6100)
+  await expectPhoto(page, secondAlt)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(page.getByRole('button', { name: /^(Pause|Play)$/ })).toHaveCount(0)
+  await expect(page.locator('.progress')).toHaveCount(0)
+  await expectPhoto(page, firstAlt)
+  await expect(page.locator('.photo').nth(0)).toHaveCSS('animation-name', 'none')
+  await expect(page.locator('.photo').nth(1)).toHaveCSS('animation-name', 'none')
+  await expect(page.locator('.photo').nth(0)).toHaveCSS('opacity', '1')
+  await page.clock.runFor(20000)
+  await expectPhoto(page, firstAlt)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+  await expectPhoto(page, firstAlt)
+  await page.clock.runFor(6100)
+  await expectPhoto(page, secondAlt)
+})
+
+test('reduced motion turned off keeps a chosen pause', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(page.getByRole('button', { name: /^(Pause|Play)$/ })).toHaveCount(0)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible()
+  await expectPhoto(page, firstAlt)
+  await page.clock.runFor(20000)
+  await expectPhoto(page, firstAlt)
+})
+
 test('play uses only the time left before pause', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()

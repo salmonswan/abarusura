@@ -159,6 +159,28 @@ test.describe('values motion', () => {
       await expect(item).toHaveCSS('color', 'rgb(255, 255, 255)')
     }
   })
+
+  test('reduced motion turned on mid reveal lights every value', async ({ page }) => {
+    const items = page.locator('.values li')
+    await page.locator('.values').scrollIntoViewIfNeeded()
+    await expect(page.locator('.values')).toHaveClass(/revealing/)
+    await page.clock.runFor(260)
+    await expect(items.first()).toHaveCSS('color', 'rgb(255, 255, 255)')
+    await expect(items.last()).toHaveCSS('color', 'rgb(111, 119, 153)')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await expect(items).toHaveCount(5)
+    for (const item of await items.all()) {
+      await expect(item).toHaveCSS('color', 'rgb(255, 255, 255)')
+    }
+    await page.clock.runFor(2000)
+    for (const item of await items.all()) {
+      await expect(item).toHaveCSS('color', 'rgb(255, 255, 255)')
+    }
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    for (const item of await items.all()) {
+      await expect(item).toHaveCSS('color', 'rgb(255, 255, 255)')
+    }
+  })
 })
 
 test('reduced motion leaves every value lit immediately', async ({ page }) => {
