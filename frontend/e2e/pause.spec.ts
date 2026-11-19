@@ -48,7 +48,7 @@ test('the outgoing photo keeps its zoom through the fade', async ({ page }) => {
   await outgoing.evaluate((photo) => {
     const fade = photo.getAnimations().find(
       (animation): animation is CSSAnimation =>
-        animation instanceof CSSAnimation && animation.animationName === 'photo-fade-out',
+        animation instanceof CSSAnimation && animation.animationName.endsWith('-photo-fade-out'),
     )
     if (!fade) throw new Error('Missing outgoing fade animation')
     fade.currentTime = 400
@@ -61,7 +61,7 @@ test('the outgoing photo keeps its zoom through the fade', async ({ page }) => {
   await outgoing.evaluate((photo) => {
     const fade = photo.getAnimations().find(
       (animation): animation is CSSAnimation =>
-        animation instanceof CSSAnimation && animation.animationName === 'photo-fade-out',
+        animation instanceof CSSAnimation && animation.animationName.endsWith('-photo-fade-out'),
     )
     if (!fade) throw new Error('Missing outgoing fade animation')
     fade.finish()
@@ -80,11 +80,17 @@ test('pause freezes a cross-fade and play resumes it', async ({ page }) => {
     [...document.querySelectorAll('.photo')]
       .flatMap((photo) => photo.getAnimations())
       .filter((animation): animation is CSSAnimation =>
-        animation instanceof CSSAnimation && animation.animationName.startsWith('photo-fade-'),
+        animation instanceof CSSAnimation && (
+          animation.animationName.endsWith('-photo-fade-out') ||
+          animation.animationName.endsWith('-photo-fade-in')
+        ),
       )
       .map((animation) => {
         animation.currentTime = 400
-        return { name: animation.animationName, playState: animation.playState }
+        const name = animation.animationName.endsWith('-photo-fade-out')
+          ? 'photo-fade-out'
+          : 'photo-fade-in'
+        return { name, playState: animation.playState }
       }),
   )
   expect(fades).toEqual([
